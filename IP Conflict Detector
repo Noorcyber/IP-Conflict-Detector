@@ -1,0 +1,25 @@
+#!/bin/sh
+# ip-conflict-detector.sh
+
+NET_INTERFACE="br-lan"
+SUBNET="192.168.1"
+LOGFILE="/tmp/ip_conflict.log"
+ARP_SCAN_TOOL=$(which arping)
+
+echo "[INFO] Starting IP conflict scan on $SUBNET.0/24..."
+
+for i in $(seq 1 254); do
+    IP="$SUBNET.$i"
+
+    # Ping the IP to populate ARP table
+    ping -c 1 -W 1 $IP > /dev/null 2>&1
+
+    # Check how many unique MACs are associated with this IP
+    MACS=$(ip neigh show dev $NET_INTERFACE | grep "$IP " | awk '{print $5}' | sort | uniq)
+    COUNT=$(echo "$MACS" | wc -l)
+
+    if [ "$COUNT" -gt 1 ]; then
+        echo "[WARNING] IP Conflict detected for $IP! Multiple MACs: $MACS"
+        echo "$(date): Conflict on $IP - MACs: $MACS" >> $LOGFILE
+    fi
+done
